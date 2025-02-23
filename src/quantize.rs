@@ -1,5 +1,5 @@
 use image::{GenericImageView, Pixel};
-use std::{collections::HashMap, env};
+use std::collections::HashMap;
 
 // Get a unique identifier for a color at a given depth
 fn get_pixel_hash(rgb: &[u8], depth: i8) -> String {
@@ -18,7 +18,7 @@ fn get_pixel_hash(rgb: &[u8], depth: i8) -> String {
     pixel_hash
 }
 
-pub fn quantize(img: &image::DynamicImage, depth: i8) -> Vec<(u64, u64, u64, u64)> {
+pub fn quantize(img: &image::DynamicImage, depth: i8) -> Vec<(u8, u8, u8)> {
     let mut tree: HashMap<String, (u64, u64, u64, u64)> = HashMap::new();
 
     for (_x, _y, pixel) in img.pixels() {
@@ -49,10 +49,21 @@ pub fn quantize(img: &image::DynamicImage, depth: i8) -> Vec<(u64, u64, u64, u64
             );
         }
     }
-    let mut colors: Vec<(u64, u64, u64, u64)> = tree
+    let mut occurrences: Vec<(u64, u8, u8, u8)> = tree
         .into_values()
-        .map(|(c, r, g, b)| (c, r / c, g / c, b / c))
+        .map(|(c, r, g, b)| {
+            (
+                c,
+                r.div_euclid(c).try_into().unwrap(),
+                g.div_euclid(c).try_into().unwrap(),
+                b.div_euclid(c).try_into().unwrap(),
+            )
+        })
         .collect();
-    colors.sort_by(|a, b| b.0.cmp(&a.0));
-    return colors;
+    occurrences.sort_by(|a, b| a.0.cmp(&b.0));
+    let colors: Vec<(u8, u8, u8)> = occurrences
+        .iter()
+        .map(|(_c, r, g, b)| (*r, *g, *b))
+        .collect();
+    colors
 }
