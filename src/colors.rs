@@ -165,14 +165,14 @@ pub fn mix_colors(
     let main_hsl = rgb_to_hsl(main);
     let accent_hsl = rgb_to_hsl(accent);
     //multiply diff by scaled factors
-    let sat_change = (main_hsl.1 - accent_hsl.1) * (sat_factor as f64 / 100.0);
     let hue_change = (main_hsl.0 - accent_hsl.0) * (hue_factor as f64 / 100.0);
+    let sat_change = (main_hsl.1 - accent_hsl.1) * (sat_factor as f64 / 100.0);
     let light_change = (main_hsl.2 - accent_hsl.2) * (light_factor as f64 / 100.0);
     //move the values
     let result: (f64, f64, f64) = (
-        (main_hsl.0 + hue_change),
-        (main_hsl.1 + sat_change),
-        (main_hsl.2 + light_change),
+        (main_hsl.0 - hue_change),
+        (main_hsl.1 - sat_change),
+        (main_hsl.2 - light_change),
     );
     hsl_to_rgb(&result)
 }
