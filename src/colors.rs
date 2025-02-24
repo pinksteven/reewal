@@ -1,5 +1,3 @@
-use std::cmp::max;
-
 fn rgb_to_hsl(rgb: &(u8, u8, u8)) -> (f64, f64, f64) {
     let r: f64 = rgb.0 as f64 / 255.0;
     let g: f64 = rgb.1 as f64 / 255.0;
@@ -84,32 +82,97 @@ fn hsl_to_rgb(hsl: &(f64, f64, f64)) -> (u8, u8, u8) {
 
 // Compare max color distance against a threshold to remove greyscale colors
 pub fn is_colorful(rgb: &(u8, u8, u8), threshold: u8) -> bool {
-    let diff = (
-        rgb.0.abs_diff(rgb.1),
-        rgb.0.abs_diff(rgb.2),
-        rgb.1.abs_diff(rgb.2),
-    );
-    let max_diff = max(diff.0, max(diff.1, diff.2));
-    // adjust to 0-100 scale for simplicity in tweaking numbers
-    let adjusted = (max_diff as f64 / 2.55) as u8;
-    adjusted >= threshold
+    let hsl = rgb_to_hsl(rgb);
+    // scale threshold from 0-100 to 0-1
+    let t: f64 = threshold as f64 / 100.0;
+
+    //a bunch of funky math on hsl,
+    //threshold is a distance from 0 saturation at 0.5 lightness and the top/bottom values of
+    //lighness at max saturation, treating it as a quadratic curve, gives this function
+    //given the threshold and lightness this return the minimum value for saturation
+    let color_point = ((1.0 - t) / (t - 0.5).powi(2)) * (hsl.2 - 0.5).powi(2) + t;
+    hsl.1 >= color_point
 }
 
-// Calculate a simplified color distance (https://www.compuphase.com/cmetric.htm)
+// Needed for color comparison
+fn rgb_to_lab(rgb: &(u8, u8, u8)) -> (f64, f64, f64) {
+    // Convert to XYZ, as rgb can't really be converted straight to lab
+    let mut r: f64 = rgb.0 as f64 / 255.0;
+    let mut g: f64 = rgb.1 as f64 / 255.0;
+    let mut b: f64 = rgb.2 as f64 / 255.0;
+
+    r = if r > 0.04045 {
+        ((r + 0.055) / 1.055).powf(2.4) * 100.0
+    } else {
+        (r / 12.92) * 100.0
+    };
+    g = if g > 0.04045 {
+        ((g + 0.055) / 1.055).powf(2.4) * 100.0
+    } else {
+        (g / 12.92) * 100.0
+    };
+    b = if b > 0.04045 {
+        ((b + 0.055) / 1.055).powf(2.4) * 100.0
+    } else {
+        (b / 12.92) * 100.0
+    };
+    // Dividing but D65/2 reference in this stepb
+    let mut x: f64 = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 95.047;
+    let mut y: f64 = (r * 0.2126 + g * 0.7152 + b * 0.0722) / 100.0;
+    let mut z: f64 = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 108.883;
+
+    // Conversion to L*ab
+    x = if x > 0.008856 {
+        x.powf(1.0 / 3.0)
+    } else {
+        (7.787 * x) + (16.0 / 116.0)
+    };
+    y = if y > 0.008856 {
+        y.powf(1.0 / 3.0)
+    } else {
+        (7.787 * y) + (16.0 / 116.0)
+    };
+    z = if z > 0.008856 {
+        z.powf(1.0 / 3.0)
+    } else {
+        (7.787 * z) + (16.0 / 116.0)
+    };
+    let l: f64 = (116.0 * y) - 16.0;
+    let a: f64 = 500.0 * (x - y);
+    let b: f64 = 200.0 * (y - z);
+
+    (l, a, b)
+}
+
+// Calculate the delta E of colors
+// using the very outdated version due to simplicity in calculation
+// and lack of need for that high levels of precision
 pub fn compare_colors(rgb1: &(u8, u8, u8), rgb2: &(u8, u8, u8)) -> u16 {
-    // println!(
-    //     "Comparing: rgb({}, {}, {}) and rgb({}, {}, {})",
-    //     rgb1.0, rgb1.1, rgb1.2, rgb2.0, rgb2.1, rgb2.2
-    // );
-    let rmean: f64 = (rgb1.0 as f64 + rgb2.0 as f64) / 2.0;
-    let r: f64 = rgb1.0.abs_diff(rgb2.0).into();
-    let g: f64 = rgb1.1.abs_diff(rgb2.1).into();
-    let b: f64 = rgb1.2.abs_diff(rgb2.2).into();
-    let pure_distance = f64::sqrt(
-        ((2.0 + rmean / 256.0) * r * r) + (4.0 * g * g) + ((2.0 + (255.0 - rmean) / 256.0) * b * b),
+    let lab1 = rgb_to_lab(rgb1);
+    let lab2 = rgb_to_lab(rgb2);
+    let delta =
+        ((lab1.0 - lab2.0).powi(2) + (lab1.1 - lab2.1).powi(2) + (lab1.2 - lab2.2).powi(2)).sqrt();
+    delta.round() as u16
+}
+
+pub fn mix_colors(
+    main: &(u8, u8, u8),
+    accent: &(u8, u8, u8),
+    hue_factor: u8,
+    sat_factor: u8,
+    light_factor: u8,
+) -> (u8, u8, u8) {
+    let main_hsl = rgb_to_hsl(main);
+    let accent_hsl = rgb_to_hsl(accent);
+    //multiply diff by scaled factors
+    let sat_change = (main_hsl.1 - accent_hsl.1) * (sat_factor as f64 / 100.0);
+    let hue_change = (main_hsl.0 - accent_hsl.0) * (hue_factor as f64 / 100.0);
+    let light_change = (main_hsl.2 - accent_hsl.2) * (light_factor as f64 / 100.0);
+    //move the values
+    let result: (f64, f64, f64) = (
+        (main_hsl.0 + hue_change),
+        (main_hsl.1 + sat_change),
+        (main_hsl.2 + light_change),
     );
-    // adjust to 0-100 scale for simplicity in tweaking numbers
-    let adjusted: u16 = (pure_distance / 7.64) as u16;
-    // println!("Distance: {}", adjusted);
-    adjusted
+    hsl_to_rgb(&result)
 }

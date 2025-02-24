@@ -60,7 +60,7 @@ pub fn quantize(img: &image::DynamicImage, depth: i8) -> Vec<(u8, u8, u8)> {
             )
         })
         .collect();
-    occurrences.sort_by(|a, b| a.0.cmp(&b.0));
+    occurrences.sort_by(|a, b| b.0.cmp(&a.0));
     let colors: Vec<(u8, u8, u8)> = occurrences
         .iter()
         .map(|(_c, r, g, b)| (*r, *g, *b))
