@@ -77,7 +77,8 @@ fn main() {
                 }
             }
             base16[i] = if candidates[i - 8].is_empty() {
-                String::new()
+                let temp = colors::mix_colors(&scheme[i], &accent, 10, 100, 100);
+                format!("#{:02X}{:02X}{:02X}", temp.0, temp.1, temp.2)
             } else {
                 candidates[i - 8][0].0.clone()
             };
@@ -99,7 +100,8 @@ fn main() {
                     };
                     candidates[change - 8].pop();
                     base16[change] = if candidates[change - 8].is_empty() {
-                        String::new()
+                        let temp = colors::mix_colors(&scheme[change], &accent, 0, 100, 100);
+                        format!("#{:02X}{:02X}{:02X}", temp.0, temp.1, temp.2)
                     } else {
                         candidates[change - 8].last().unwrap().0.clone()
                     };
