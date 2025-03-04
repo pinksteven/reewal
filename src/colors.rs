@@ -1,3 +1,5 @@
+use std::f64::consts::PI;
+
 fn rgb_to_hsl(rgb: &(u8, u8, u8)) -> (f64, f64, f64) {
     let r: f64 = rgb.0 as f64 / 255.0;
     let g: f64 = rgb.1 as f64 / 255.0;
@@ -144,23 +146,78 @@ fn rgb_to_lab(rgb: &(u8, u8, u8)) -> (f64, f64, f64) {
     (l, a, b)
 }
 
-// Calculate the delta E of colors
-// using the very outdated version due to simplicity in calculation
-// and lack of need for that high levels of precision
-pub fn compare_colors(rgb1: &(u8, u8, u8), rgb2: &(u8, u8, u8)) -> u16 {
+// Calculate the delta E of colors using CIE2000
+// with ability to fine tune weight factors
+pub fn compare_colors(
+    rgb1: &(u8, u8, u8),
+    rgb2: &(u8, u8, u8),
+    hue_weight: f64,
+    chroma_weight: f64,
+    light_weight: f64,
+) -> u16 {
     let lab1 = rgb_to_lab(rgb1);
     let lab2 = rgb_to_lab(rgb2);
-    let delta =
-        ((lab1.0 - lab2.0).powi(2) + (lab1.1 - lab2.1).powi(2) + (lab1.2 - lab2.2).powi(2)).sqrt();
-    delta.round() as u16
+
+    let delta_l = lab2.0 - lab1.0;
+    let xl = (lab1.0 + lab2.0) / 2.0;
+    let mut c1 = (lab1.1 * lab1.1 + lab1.2 * lab1.2).sqrt();
+    let mut c2 = (lab2.1 * lab2.1 + lab2.2 * lab2.2).sqrt();
+    let mut xc = (c1 + c2) / 2.0;
+    let a1 =
+        lab1.1 + (lab1.1 / 2.0) * (1.0 - (xc.powi(7) / (xc.powi(7) + f64::powi(25.0, 7)).sqrt()));
+    let a2 =
+        lab2.1 + (lab2.1 / 2.0) * (1.0 - (xc.powi(7) / (xc.powi(7) + f64::powi(25.0, 7)).sqrt()));
+
+    c1 = (a1 * a1 + lab1.2 * lab1.2).sqrt();
+    c2 = (a2 * a2 + lab2.2 * lab2.2).sqrt();
+    xc = (c1 + c2) / 2.0;
+    let delta_c = c2 - c1;
+
+    let h1 = (lab1.2.to_radians().atan2(a1.to_radians()) + PI) % (2.0 * PI);
+    let h2 = (lab2.2.to_radians().atan2(a2.to_radians()) + PI) % (2.0 * PI);
+    let delta_h = if c1 * c2 == 0.0 {
+        0.0
+    } else if (h1 - h2).abs() <= PI {
+        2.0 * (c1 * c2).sqrt() * ((h2 - h1) / 2.0).sin()
+    } else if h2 <= h1 {
+        2.0 * (c1 * c2).sqrt() * ((h2 - h1 + 2.0 * PI) / 2.0).sin()
+    } else {
+        2.0 * (c1 * c2).sqrt() * ((h2 - h1 - 2.0 * PI) / 2.0).sin()
+    };
+    let xh = if (h1 - h2).abs() <= PI {
+        (h1 + h2) / 2.0
+    } else if h1 + h2 < 2.0 * PI {
+        (h1 + h2 + 2.0 * PI) / 2.0
+    } else {
+        (h1 + h2 - 2.0 * PI) / 2.0
+    };
+    let xt = 1.0 - 0.17 * (xh - PI / 6.0).cos()
+        + 0.24 * (2.0 * xh).cos()
+        + 0.32 * (3.0 * xh + PI / 30.0).cos()
+        - 0.2 * (4.0 * xh - 0.35 * PI).cos();
+    let sl = 1.0 + 0.015 * (xl - 50.0).powi(2) / (20.0 + (xl - 50.0).powi(2)).sqrt();
+    let sc = 1.0 + 0.045 * xc;
+    let sh = 1.0 + 0.015 * xc * xt;
+
+    let rt = -2.0
+        * (xc.powi(7) / (xc.powi(7) / f64::powi(25.0, 7))).sqrt()
+        * (60.0 * (-((xh.to_degrees() - 275.0) / 25.0).powi(2)).exp())
+            .to_radians()
+            .sin();
+    let l_part = delta_l / (sl * light_weight);
+    let c_part = delta_c / (sc * chroma_weight);
+    let h_part = delta_h / (sh * hue_weight);
+    let result = (l_part.powi(2) + c_part.powi(2) + h_part.powi(2) + rt * c_part * h_part).sqrt();
+    // println!("{}", result);
+    result.round() as u16
 }
 
 pub fn mix_colors(
     main: &(u8, u8, u8),
     accent: &(u8, u8, u8),
-    hue_factor: u8,
-    sat_factor: u8,
-    light_factor: u8,
+    hue_factor: i8,
+    sat_factor: i8,
+    light_factor: i8,
 ) -> (u8, u8, u8) {
     let main_hsl = rgb_to_hsl(main);
     let accent_hsl = rgb_to_hsl(accent);
@@ -170,9 +227,28 @@ pub fn mix_colors(
     let light_change = (main_hsl.2 - accent_hsl.2) * (light_factor as f64 / 100.0);
     //move the values
     let result: (f64, f64, f64) = (
-        (main_hsl.0 - hue_change),
-        (main_hsl.1 - sat_change),
-        (main_hsl.2 - light_change),
+        (main_hsl.0 - hue_change).clamp(0.0, 1.0),
+        (main_hsl.1 - sat_change).clamp(0.0, 1.0),
+        (main_hsl.2 - light_change).clamp(0.0, 1.0),
+    );
+    hsl_to_rgb(&result)
+}
+
+pub fn tweak_color(
+    rgb: &(u8, u8, u8),
+    hue_factor: i8,
+    sat_factor: i8,
+    light_factor: i8,
+) -> (u8, u8, u8) {
+    let hsl = rgb_to_hsl(rgb);
+    let h_change = hsl.0 * (hue_factor as f64 / 100.0);
+    let s_change = hsl.1 * (sat_factor as f64 / 100.0);
+    let l_change = hsl.2 * (light_factor as f64 / 100.0);
+
+    let result: (f64, f64, f64) = (
+        (hsl.0 + h_change).clamp(0.0, 1.0),
+        (hsl.1 + s_change).clamp(0.0, 1.0),
+        (hsl.2 + l_change).clamp(0.0, 1.0),
     );
     hsl_to_rgb(&result)
 }
