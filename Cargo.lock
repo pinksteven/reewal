@@ -752,6 +752,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "reewal"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "saphyr",
+]
+
+[[package]]
 name = "rgb"
 version = "0.8.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1042,14 +1050,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "59690dea168f2198d1a3b0cac23b8063efcd11012f10ae4698f284808c8ef603"
 dependencies = [
  "memchr",
-]
-
-[[package]]
-name = "yawal"
-version = "0.1.0"
-dependencies = [
- "image",
- "saphyr",
 ]
 
 [[package]]
