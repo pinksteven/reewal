@@ -1,5 +1,27 @@
 use image::{GenericImageView, Pixel};
-use std::collections::HashMap;
+use std::cmp::Ordering;
+use std::collections::{BinaryHeap, HashMap};
+
+#[derive(PartialEq, Eq, Clone)]
+pub struct ColorCount {
+    pub rgb: (u8, u8, u8),
+    pub count: usize,
+}
+
+impl Ord for ColorCount {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.count.cmp(&other.count) {
+            Ordering::Equal => self.rgb.cmp(&other.rgb),
+            ordering => ordering,
+        }
+    }
+}
+
+impl PartialOrd for ColorCount {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 // Get a unique identifier for a color at a given depth
 fn get_pixel_hash(rgb: &[u8], depth: i8) -> String {
@@ -18,7 +40,7 @@ fn get_pixel_hash(rgb: &[u8], depth: i8) -> String {
     pixel_hash
 }
 
-pub fn quantize(img: &image::DynamicImage, depth: i8) -> Vec<(u8, u8, u8)> {
+pub fn quantize(img: &image::DynamicImage, depth: i8) -> BinaryHeap<ColorCount> {
     let mut tree: HashMap<String, (u64, u64, u64, u64)> = HashMap::new();
 
     for (_x, _y, pixel) in img.pixels() {
@@ -49,21 +71,18 @@ pub fn quantize(img: &image::DynamicImage, depth: i8) -> Vec<(u8, u8, u8)> {
             );
         }
     }
-    let mut occurrences: Vec<(u64, u8, u8, u8)> = tree
-        .into_values()
-        .map(|(c, r, g, b)| {
-            (
-                c,
-                r.div_euclid(c).try_into().unwrap(),
-                g.div_euclid(c).try_into().unwrap(),
-                b.div_euclid(c).try_into().unwrap(),
-            )
-        })
-        .collect();
-    occurrences.sort_by(|a, b| b.0.cmp(&a.0));
-    let colors: Vec<(u8, u8, u8)> = occurrences
-        .iter()
-        .map(|(_c, r, g, b)| (*r, *g, *b))
-        .collect();
-    colors
+
+    let mut output: BinaryHeap<ColorCount> = BinaryHeap::new();
+    for leaf in tree.into_values() {
+        let color = (
+            (leaf.1 / leaf.0) as u8,
+            (leaf.2 / leaf.0) as u8,
+            (leaf.3 / leaf.0) as u8,
+        );
+        output.push(ColorCount {
+            rgb: color,
+            count: leaf.0 as usize,
+        });
+    }
+    output
 }

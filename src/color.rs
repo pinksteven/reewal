@@ -89,10 +89,10 @@ pub fn is_colorful(rgb: &(u8, u8, u8), threshold: u8) -> bool {
     let t: f64 = threshold as f64 / 100.0;
 
     //a bunch of funky math on hsl,
-    //threshold is a distance from 0 saturation at 0.5 lightness and the top/bottom values of
-    //lighness at max saturation, treating it as a quadratic curve, gives this function
-    //given the threshold and lightness this return the minimum value for saturation
-    let color_point = ((1.0 - t) / (t - 0.5).powi(2)) * (hsl.2 - 0.5).powi(2) + t;
+    //threshold is a distance from 0 saturation at 0.5 lightness and 0.8*threshold are
+    //the top/bottom values of lighness at max saturation, treating it as a quadratic curve,
+    //gives this function given the threshold and lightness this return the minimum value for saturation
+    let color_point = ((1.0 - 0.8 * t) / (0.8 * t - 0.5).powi(2)) * (hsl.2 - 0.5).powi(2) + t;
     hsl.1 >= color_point
 }
 
@@ -160,16 +160,14 @@ pub fn compare_colors(
 
     let delta_l = lab2.0 - lab1.0;
     let xl = (lab1.0 + lab2.0) / 2.0;
-    let mut c1 = (lab1.1 * lab1.1 + lab1.2 * lab1.2).sqrt();
-    let mut c2 = (lab2.1 * lab2.1 + lab2.2 * lab2.2).sqrt();
+    let mut c1 = (lab1.1.powi(2) + lab1.2.powi(2)).sqrt();
+    let mut c2 = (lab2.1.powi(2) + lab2.2.powi(2)).sqrt();
     let mut xc = (c1 + c2) / 2.0;
-    let a1 =
-        lab1.1 + (lab1.1 / 2.0) * (1.0 - (xc.powi(7) / (xc.powi(7) + f64::powi(25.0, 7)).sqrt()));
-    let a2 =
-        lab2.1 + (lab2.1 / 2.0) * (1.0 - (xc.powi(7) / (xc.powi(7) + f64::powi(25.0, 7)).sqrt()));
+    let a1 = lab1.1 + (lab1.1 / 2.0) * (1.0 - (xc.powi(7) / (xc.powi(7) + 6103515625.0)).sqrt());
+    let a2 = lab2.1 + (lab2.1 / 2.0) * (1.0 - (xc.powi(7) / (xc.powi(7) + 6103515625.0)).sqrt());
 
-    c1 = (a1 * a1 + lab1.2 * lab1.2).sqrt();
-    c2 = (a2 * a2 + lab2.2 * lab2.2).sqrt();
+    c1 = (a1.powi(2) + lab1.2.powi(2)).sqrt();
+    c2 = (a2.powi(2) + lab2.2.powi(2)).sqrt();
     xc = (c1 + c2) / 2.0;
     let delta_c = c2 - c1;
 
@@ -198,17 +196,16 @@ pub fn compare_colors(
     let sl = 1.0 + 0.015 * (xl - 50.0).powi(2) / (20.0 + (xl - 50.0).powi(2)).sqrt();
     let sc = 1.0 + 0.045 * xc;
     let sh = 1.0 + 0.015 * xc * xt;
-
     let rt = -2.0
-        * (xc.powi(7) / (xc.powi(7) / f64::powi(25.0, 7))).sqrt()
+        * (xc.powi(7) / (xc.powi(7) + 6103515625.0)).sqrt()
         * (60.0 * (-((xh.to_degrees() - 275.0) / 25.0).powi(2)).exp())
             .to_radians()
             .sin();
     let l_part = delta_l / (sl * light_weight);
     let c_part = delta_c / (sc * chroma_weight);
     let h_part = delta_h / (sh * hue_weight);
-    let result = (l_part.powi(2) + c_part.powi(2) + h_part.powi(2) + rt * c_part * h_part).sqrt();
-    // println!("{}", result);
+    let rt_part = rt * c_part * h_part;
+    let result = (l_part.powi(2) + c_part.powi(2) + h_part.powi(2) + rt_part).sqrt();
     result.round() as u16
 }
 
@@ -234,12 +231,7 @@ pub fn mix_colors(
     hsl_to_rgb(&result)
 }
 
-pub fn tweak_color(
-    rgb: &(u8, u8, u8),
-    hue_factor: i8,
-    sat_factor: i8,
-    light_factor: i8,
-) -> (u8, u8, u8) {
+pub fn tweak_color(rgb: &mut (u8, u8, u8), hue_factor: i8, sat_factor: i8, light_factor: i8) {
     let hsl = rgb_to_hsl(rgb);
     let h_change = hsl.0 * (hue_factor as f64 / 100.0);
     let s_change = hsl.1 * (sat_factor as f64 / 100.0);
@@ -250,5 +242,5 @@ pub fn tweak_color(
         (hsl.1 + s_change).clamp(0.0, 1.0),
         (hsl.2 + l_change).clamp(0.0, 1.0),
     );
-    hsl_to_rgb(&result)
+    *rgb = hsl_to_rgb(&result);
 }
