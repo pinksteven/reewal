@@ -1,7 +1,5 @@
 use std::collections::{BinaryHeap, HashMap};
 
-use crate::color::{is_colorful, tweak_color};
-
 use super::color;
 use super::quantize::ColorCount;
 
@@ -112,6 +110,46 @@ fn check_and_replace(
     }
 }
 
+fn gen_color(
+    palette: &Vec<Option<(u8, u8, u8)>>,
+    template_colors: &Vec<(u8, u8, u8)>,
+    accent: &(u8, u8, u8),
+    threshold: u16,
+    index: usize,
+) -> (u8, u8, u8) {
+    let mut generated = color::mix_colors(&template_colors[index], accent, 10, 100, 100);
+    let mut distance = color::compare_colors(&generated, &template_colors[index], 1.0, 1.0, 1.0);
+    let mut palette_distance = u16::MAX;
+    for i in 8..16 {
+        if let Some(c) = palette[i] {
+            let temp = color::compare_colors(&generated, &c, 1.0, 1.0, 1.0);
+            if temp < palette_distance {
+                palette_distance = temp;
+            }
+        }
+    }
+    let mut best_distance = palette_distance;
+    let mut best_color = generated;
+    while distance <= threshold {
+        generated = color::tweak_color(&generated, 0, 1, -1);
+        distance = color::compare_colors(&generated, &template_colors[index], 1.0, 1.0, 1.0);
+        palette_distance = u16::MAX;
+        for i in 8..16 {
+            if let Some(c) = palette[i] {
+                let temp = color::compare_colors(&generated, &c, 1.0, 1.0, 1.0);
+                if temp < palette_distance {
+                    palette_distance = temp;
+                }
+            }
+        }
+        if palette_distance > best_distance {
+            best_distance = palette_distance;
+            best_color = generated;
+        }
+    }
+    best_color
+}
+
 pub fn create_palette(
     color_map: &mut HashMap<(u8, u8, u8), BinaryHeap<ColorCount>>,
     template_colors: &Vec<(u8, u8, u8)>,
@@ -135,6 +173,18 @@ pub fn create_palette(
     // Remove colors that are too similar to each other
     for i in 8..16 {
         check_and_replace(color_map, &mut palette, template_colors, threshold, i);
+    }
+
+    for i in 8..16 {
+        if palette[i].is_none() {
+            palette[i] = Some(gen_color(
+                &palette,
+                template_colors,
+                &accent_color,
+                threshold,
+                i,
+            ));
+        }
     }
 
     palette

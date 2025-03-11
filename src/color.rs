@@ -231,7 +231,12 @@ pub fn mix_colors(
     hsl_to_rgb(&result)
 }
 
-pub fn tweak_color(rgb: &mut (u8, u8, u8), hue_factor: i8, sat_factor: i8, light_factor: i8) {
+pub fn tweak_color(
+    rgb: &(u8, u8, u8),
+    hue_factor: i8,
+    sat_factor: i8,
+    light_factor: i8,
+) -> (u8, u8, u8) {
     let hsl = rgb_to_hsl(rgb);
     let h_change = hsl.0 * (hue_factor as f64 / 100.0);
     let s_change = hsl.1 * (sat_factor as f64 / 100.0);
@@ -242,5 +247,5 @@ pub fn tweak_color(rgb: &mut (u8, u8, u8), hue_factor: i8, sat_factor: i8, light
         (hsl.1 + s_change).clamp(0.0, 1.0),
         (hsl.2 + l_change).clamp(0.0, 1.0),
     );
-    *rgb = hsl_to_rgb(&result);
+    hsl_to_rgb(&result)
 }

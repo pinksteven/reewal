@@ -28,11 +28,11 @@ fn main() {
     let base16 = data::create_palette(&mut color_map, &scheme, accent, threshold as u16);
 
     println!("Generated scheme: ");
-    for i in 0..16 {
-        if let Some(c) = base16[i] {
-            println!("Color rgb #{} #{:02X}{:02X}{:02X}", i, c.0, c.1, c.2);
+    for color in base16.iter().enumerate() {
+        if let Some(c) = color.1 {
+            println!("Color rgb #{} #{:02X}{:02X}{:02X}", color.0, c.0, c.1, c.2);
         } else {
-            println!("No color number {}", i);
+            println!("No color number {}", color.0);
         }
     }
 
