@@ -24,7 +24,7 @@ impl PartialOrd for ColorCount {
 }
 
 // Get a unique identifier for a color at a given depth
-fn get_pixel_hash(rgb: &[u8], depth: i8) -> String {
+fn get_pixel_hash(rgb: &[u8], depth: u8) -> String {
     let mut pixel_hash = String::new();
     for i in 0..depth {
         let r_bit = (rgb[0] >> (7 - i)) & 1;
@@ -40,7 +40,7 @@ fn get_pixel_hash(rgb: &[u8], depth: i8) -> String {
     pixel_hash
 }
 
-pub fn quantize(img: &image::DynamicImage, depth: i8) -> BinaryHeap<ColorCount> {
+pub fn quantize(img: &image::DynamicImage, depth: u8) -> BinaryHeap<ColorCount> {
     let mut tree: HashMap<String, (u64, u64, u64, u64)> = HashMap::new();
 
     for (_x, _y, pixel) in img.pixels() {
