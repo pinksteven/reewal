@@ -3,9 +3,9 @@ use super::yaml::get_scheme;
 pub struct Config {
     pub template_colors: Vec<(u8, u8, u8)>,
     pub depth: u8,
-    pub variance: u16,
-    pub colorful_threshold: u8,
-    pub similarity_threshold: u16,
+    pub similarity: u16,
+    pub vibrancy: u8,
+    pub likeness: u16,
 
     pub hue_compare: f64,
     pub chroma_compare: f64,
@@ -41,9 +41,9 @@ pub fn parse_config(args: Vec<String>) -> Config {
             (184, 125, 40),
         ],
         depth: 2,
-        variance: 20,
-        colorful_threshold: 15,
-        similarity_threshold: 20,
+        similarity: 20,
+        vibrancy: 15,
+        likeness: 20,
 
         hue_compare: 0.75,
         chroma_compare: 1.0,
@@ -75,11 +75,11 @@ pub fn parse_config(args: Vec<String>) -> Config {
             } else {
                 config.depth = depth.try_into().expect("Unknown error when parsing depth");
             }
-        } else if entry.1 == "-v" {
-            config.variance = args[entry.0 + 1]
+        } else if entry.1 == "-s" {
+            config.similarity = args[entry.0 + 1]
                 .parse()
-                .expect("-v: Incorrect variance value. Expected an unsigned 16bit integer");
-        } else if entry.1 == "-c" {
+                .expect("-s: Incorrect variance value. Expected an unsigned 16bit integer");
+        } else if entry.1 == "-v" {
             let input: i64 = args[entry.0 + 1].parse().unwrap();
             if !(1..=100).contains(&input) {
                 panic!(
@@ -87,14 +87,14 @@ pub fn parse_config(args: Vec<String>) -> Config {
                     input
                 );
             } else {
-                config.colorful_threshold = input
+                config.vibrancy = input
                     .try_into()
                     .expect("Unknown error when parsing color threshold");
             }
-        } else if entry.1 == "-s" {
-            config.similarity_threshold = args[entry.0 + 1]
+        } else if entry.1 == "-l" {
+            config.likeness = args[entry.0 + 1]
                 .parse()
-                .expect("-s: Expected an unsigned 16bit integer");
+                .expect("-l: Expected an unsigned 16bit integer");
         } else if entry.1 == "--hue-compare" {
             let input: f64 = args[entry.0 + 1]
                 .parse()

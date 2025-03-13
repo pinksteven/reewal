@@ -30,8 +30,8 @@ pub fn map_colors(
                 config.hue_compare,
                 config.chroma_compare,
                 config.light_compare,
-            ) <= config.similarity_threshold
-                && (color.0 < 8 || color::is_colorful(&candidate.rgb, config.colorful_threshold))
+            ) <= config.likeness
+                && (color.0 < 8 || color::is_colorful(&candidate.rgb, config.vibrancy))
             {
                 heap.push(candidate.clone());
             }
@@ -85,7 +85,7 @@ fn check_and_replace(
         for i in 8..16 {
             if i != index {
                 if let Some(c2) = palette[i] {
-                    if color::compare_colors(&c1, &c2, 1.0, 1.0, 1.0) < config.variance {
+                    if color::compare_colors(&c1, &c2, 1.0, 1.0, 1.0) < config.similarity {
                         // Remove the color that is less similar to the template color
                         let c1_distance = color::compare_colors(
                             &c1,
@@ -172,7 +172,8 @@ fn gen_color(
     }
     let mut best_distance = palette_distance;
     let mut best_color = generated;
-    while distance <= config.variance {
+    let mut i = 0;
+    while distance <= config.similarity && i < u16::MAX {
         generated = color::tweak_color(
             &generated,
             config.hue_tweak,
@@ -205,6 +206,7 @@ fn gen_color(
             best_distance = palette_distance;
             best_color = generated;
         }
+        i += 1;
     }
     best_color
 }

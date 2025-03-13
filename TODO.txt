@@ -1,0 +1,3 @@
+[ ]: Handle grayscale wallwapers where it's impossible to get accent
+[ ]: Add an option to pass a config file instead of parameters
+[ ]: Add a help runtime parameter
