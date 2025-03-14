@@ -1,5 +1,8 @@
 use saphyr::Yaml;
-use std::{fs::File, io::Read};
+use std::{
+    fs::File,
+    io::{Read, Write},
+};
 
 fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
     let offset = match hex.len() {
@@ -14,10 +17,13 @@ fn hex_to_rgb(hex: &str) -> (u8, u8, u8) {
 }
 
 pub fn get_scheme(path: &String) -> Vec<(u8, u8, u8)> {
+    println!("Opening scheme file: {}", path);
     let mut content = String::new();
-    let mut file = File::open(path).unwrap();
-    file.read_to_string(&mut content).unwrap();
-    let docs = Yaml::load_from_str(&content).unwrap();
+    let mut file = File::open(path).expect("Could not open scheme file");
+    file.read_to_string(&mut content)
+        .expect("Could not read scheme file");
+    println!("Opened");
+    let docs = Yaml::load_from_str(&content).expect("Could not load scheme file as yaml");
     let out: Vec<(u8, u8, u8)> = docs[0]["palette"]
         .as_hash()
         .unwrap()
@@ -29,4 +35,23 @@ pub fn get_scheme(path: &String) -> Vec<(u8, u8, u8)> {
         panic!("Not a base16 paltte, expected 16 colors, got {}", out.len());
     }
     out
+}
+
+pub fn export_scheme(path: &String, scheme: &Vec<Option<(u8, u8, u8)>>) {
+    let mut file = File::create(path).expect("Could not save file");
+    let mut output: String = r#"system: "base16"
+name: "reewal-generated"
+author: "reewal"
+variant: "dark"
+palette:
+"#
+    .to_string();
+    for color in scheme.iter().flatten().enumerate() {
+        output += format!(
+            "  base{:02X}: \"#{:02X}{:02X}{:02X}\"\n",
+            color.0, color.1 .0, color.1 .1, color.1 .2
+        )
+        .as_str();
+    }
+    let _ = file.write(output.as_bytes());
 }

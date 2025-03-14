@@ -36,4 +36,5 @@ fn main() {
             println!("No color number {}", color.0);
         }
     }
+    yaml::export_scheme(&save, &base16);
 }
