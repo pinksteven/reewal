@@ -89,10 +89,10 @@ pub fn is_colorful(rgb: &(u8, u8, u8), threshold: u8) -> bool {
     let t: f64 = threshold as f64 / 100.0;
 
     //a bunch of funky math on hsl,
-    //threshold is a distance from 0 saturation at 0.5 lightness and 0.8*threshold are
+    //threshold is a distance from 0 saturation at 0.5 lightness and half-threshold are
     //the top/bottom values of lighness at max saturation, treating it as a quadratic curve,
     //gives this function given the threshold and lightness this return the minimum value for saturation
-    let color_point = ((1.0 - 0.8 * t) / (0.8 * t - 0.5).powi(2)) * (hsl.2 - 0.5).powi(2) + t;
+    let color_point = ((1.0 - 0.5 * t) / (0.5 * t - 0.5).powi(2)) * (hsl.2 - 0.5).powi(2) + t;
     hsl.1 >= color_point
 }
 
